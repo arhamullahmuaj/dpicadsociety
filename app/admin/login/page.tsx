@@ -10,12 +10,14 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
+    setMessage("");
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -30,6 +32,26 @@ export default function AdminLogin() {
     }
 
     router.push("/admin");
+  }
+
+  async function handlePasswordReset() {
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/admin/reset-password`,
+    });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setMessage("Password reset link sent. Check your inbox and spam folder.");
   }
 
   return (
@@ -90,12 +112,26 @@ export default function AdminLogin() {
               </div>
             )}
 
+            {message && (
+              <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-400">
+                {message}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-xl bg-white px-4 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign In"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              className="w-full text-sm text-zinc-400 transition hover:text-white"
+            >
+              Forgot password?
             </button>
 
           </form>

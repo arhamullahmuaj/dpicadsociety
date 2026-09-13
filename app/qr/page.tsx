@@ -1,30 +1,7 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import QRCode from "qrcode";
+import Image from "next/image";
 
 export default function QRPage() {
-  const [qrCode, setQrCode] = useState("");
-  const [profileUrl, setProfileUrl] = useState("");
-
   const memberId = "CADS-26-001";
-
-  useEffect(() => {
-    const url = `http://192.168.1.103:3000/m/${memberId}`;
-
-    setProfileUrl(url);
-
-    QRCode.toDataURL(url, {
-      width: 300,
-      margin: 2,
-    })
-      .then((qr) => {
-        setQrCode(qr);
-      })
-      .catch((error) => {
-        console.error("QR generation failed:", error);
-      });
-  }, []);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
@@ -42,26 +19,20 @@ export default function QRPage() {
         </p>
 
         <div className="mx-auto mt-8 flex h-[300px] w-[300px] items-center justify-center rounded-2xl bg-white p-3">
-          {qrCode ? (
-            <img
-              src={qrCode}
-              alt={`QR Code for ${memberId}`}
-              className="h-full w-full"
-            />
-          ) : (
-            <p className="text-black">Generating QR...</p>
-          )}
+          <Image
+            src={`/api/qr/${encodeURIComponent(memberId)}`}
+            alt={`QR Code for ${memberId}`}
+            className="h-full w-full"
+            height={276}
+            priority
+            unoptimized
+            width={276}
+          />
         </div>
 
         <p className="mt-6 text-sm text-zinc-500">
           Scan this QR code to verify the member profile.
         </p>
-
-        {profileUrl && (
-          <p className="mt-4 break-all text-xs text-zinc-600">
-            {profileUrl}
-          </p>
-        )}
       </div>
     </main>
   );

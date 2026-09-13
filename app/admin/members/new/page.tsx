@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -13,12 +13,38 @@ export default function NewMemberPage() {
   const [semester, setSemester] = useState("");
   const [session, setSession] = useState("");
   const [position, setPosition] = useState("");
+  const [joinDate, setJoinDate] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState("");
+  const [photoName, setPhotoName] = useState("");
   const [membershipType, setMembershipType] = useState("Regular");
   const [status, setStatus] = useState("Active");
   const [bio, setBio] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please select a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Please select an image smaller than 2 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfilePhoto(String(reader.result));
+      setPhotoName(file.name);
+      setError("");
+    };
+    reader.onerror = () => setError("The selected image could not be read.");
+    reader.readAsDataURL(file);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +59,8 @@ export default function NewMemberPage() {
       Semester: semester.trim() || null,
       Session: session.trim() || null,
       Position: position.trim() || null,
+      Join_date: joinDate.trim() || null,
+      Profile_photo: profilePhoto.trim() || null,
       Membership_type: membershipType,
       Status: status,
       Bio: bio.trim() || null,
@@ -173,6 +201,17 @@ export default function NewMemberPage() {
               />
             </div>
 
+            <div>
+              <label className="text-sm text-zinc-400">Join Date</label>
+              <input
+                type="text"
+                value={joinDate}
+                onChange={(e) => setJoinDate(e.target.value)}
+                placeholder="01-06-2025"
+                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-zinc-400"
+              />
+            </div>
+
             {/* Membership Type */}
             <div>
               <label className="text-sm text-zinc-400">
@@ -206,6 +245,24 @@ export default function NewMemberPage() {
               </select>
             </div>
 
+          </div>
+
+          <div className="mt-6">
+            <label className="text-sm text-zinc-400">Profile Photo</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-2 file:text-sm file:text-white"
+            />
+            <p className="mt-2 text-xs text-zinc-500">JPG, PNG, or WebP · Maximum 2 MB</p>
+            {profilePhoto && (
+              <div className="mt-4 flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={profilePhoto} alt="Selected profile preview" className="h-16 w-16 rounded-lg object-cover" />
+                <p className="text-sm text-zinc-400">{photoName || "Current profile photo"}</p>
+              </div>
+            )}
           </div>
 
           {/* Bio */}
@@ -258,7 +315,7 @@ export default function NewMemberPage() {
         </p>
 
         <p className="mt-2 text-center text-[11px] text-zinc-800">
-          Designed & Developed by Arhamullah Muaj
+          Designed & Developed by Arhamullah Muaj & Zawad Zarir
         </p>
 
       </div>
