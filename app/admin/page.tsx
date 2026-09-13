@@ -63,6 +63,9 @@ export default function AdminDashboard() {
             <Link className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200" href="/admin/members/new">
               Add New Member
             </Link>
+            <Link className="inline-flex items-center justify-center rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white" href="/admin/works">
+              CAD Works
+            </Link>
             <Link className="inline-flex items-center justify-center rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white" href="/admin/new-admin">
               Add Admin
             </Link>
