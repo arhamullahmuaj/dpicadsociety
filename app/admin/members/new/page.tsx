@@ -3,9 +3,11 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAdminGuard } from "@/lib/useAdminGuard";
 
 export default function NewMemberPage() {
   const router = useRouter();
+  const { checking } = useAdminGuard();
 
   const [memberId, setMemberId] = useState("");
   const [fullName, setFullName] = useState("");
@@ -22,8 +24,9 @@ export default function NewMemberPage() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -36,14 +39,23 @@ export default function NewMemberPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProfilePhoto(String(reader.result));
-      setPhotoName(file.name);
-      setError("");
-    };
-    reader.onerror = () => setError("The selected image could not be read.");
-    reader.readAsDataURL(file);
+    setUploading(true);
+    setError("");
+
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch("/api/upload", { method: "POST", body });
+    const result = await response.json();
+
+    if (!response.ok) {
+      setError(result.error || "The selected image could not be uploaded.");
+      setUploading(false);
+      return;
+    }
+
+    setProfilePhoto(result.url);
+    setPhotoName(file.name);
+    setUploading(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -52,19 +64,22 @@ export default function NewMemberPage() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.from("members").insert({
-      Member_id: memberId.trim(),
-      Full_name: fullName.trim(),
-      Department: department.trim() || null,
-      Semester: semester.trim() || null,
-      Session: session.trim() || null,
-      Position: position.trim() || null,
-      Join_date: joinDate.trim() || null,
-      Profile_photo: profilePhoto.trim() || null,
-      Membership_type: membershipType,
-      Status: status,
-      Bio: bio.trim() || null,
-    });
+    const { data, error } = await supabase
+      .from("members")
+      .insert({
+        Member_id: memberId.trim(),
+        Full_name: fullName.trim(),
+        Department: department.trim() || null,
+        Semester: semester.trim() || null,
+        Session: session.trim() || null,
+        Position: position.trim() || null,
+        Join_date: joinDate.trim() || null,
+        Profile_photo: profilePhoto.trim() || null,
+        Membership_type: membershipType,
+        Status: status,
+        Bio: bio.trim() || null,
+      })
+      .select();
 
     if (error) {
       setError(error.message);
@@ -72,7 +87,17 @@ export default function NewMemberPage() {
       return;
     }
 
+    if (!data || data.length === 0) {
+      setError("Member was not created. Your session may have expired — please sign in again.");
+      setLoading(false);
+      return;
+    }
+
     router.push("/admin");
+  }
+
+  if (checking) {
+    return <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm text-zinc-400">Checking session...</main>;
   }
 
   return (
@@ -256,6 +281,7 @@ export default function NewMemberPage() {
               className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-2 file:text-sm file:text-white"
             />
             <p className="mt-2 text-xs text-zinc-500">JPG, PNG, or WebP · Maximum 2 MB</p>
+            {uploading && <p className="mt-2 text-xs text-zinc-400">Uploading...</p>}
             {profilePhoto && (
               <div className="mt-4 flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -300,7 +326,7 @@ export default function NewMemberPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploading}
               className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Creating Member..." : "Create Member"}

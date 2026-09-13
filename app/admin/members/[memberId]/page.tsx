@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAdminGuard } from "@/lib/useAdminGuard";
 
 type Member = {
   Member_id: string;
@@ -24,6 +25,7 @@ const fieldClass = "mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px
 export default function ManageMemberPage() {
   const params = useParams<{ memberId: string }>();
   const router = useRouter();
+  const { checking } = useAdminGuard();
   const sourceId = params.memberId;
   const [member, setMember] = useState<Member | null>(null);
   const [error, setError] = useState("");
@@ -31,8 +33,11 @@ export default function ManageMemberPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [photoName, setPhotoName] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
+    if (checking) return;
+
     async function loadMember() {
       const { data, error } = await supabase
         .from("public_members")
@@ -47,13 +52,13 @@ export default function ManageMemberPage() {
     }
 
     loadMember();
-  }, [sourceId]);
+  }, [sourceId, checking]);
 
   function updateField<K extends keyof Member>(field: K, value: Member[K]) {
     setMember((current) => (current ? { ...current, [field]: value } : current));
   }
 
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -66,14 +71,23 @@ export default function ManageMemberPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      updateField("Profile_photo", String(reader.result));
-      setPhotoName(file.name);
-      setError("");
-    };
-    reader.onerror = () => setError("The selected image could not be read.");
-    reader.readAsDataURL(file);
+    setUploading(true);
+    setError("");
+
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch("/api/upload", { method: "POST", body });
+    const result = await response.json();
+
+    if (!response.ok) {
+      setError(result.error || "The selected image could not be uploaded.");
+      setUploading(false);
+      return;
+    }
+
+    updateField("Profile_photo", result.url);
+    setPhotoName(file.name);
+    setUploading(false);
   }
 
   async function saveMember(event: FormEvent<HTMLFormElement>) {
@@ -82,7 +96,7 @@ export default function ManageMemberPage() {
 
     setSaving(true);
     setError("");
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("members")
       .update({
         Member_id: member.Member_id.trim(),
@@ -97,10 +111,17 @@ export default function ManageMemberPage() {
         Status: member.Status || "Active",
         Bio: member.Bio?.trim() || null,
       })
-      .eq("Member_id", sourceId);
+      .eq("Member_id", sourceId)
+      .select();
 
     if (error) {
       setError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setError("Changes were not saved. Your session may have expired — please sign in again.");
       setSaving(false);
       return;
     }
@@ -126,6 +147,7 @@ export default function ManageMemberPage() {
     router.refresh();
   }
 
+  if (checking) return <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm text-zinc-400">Checking session...</main>;
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm text-zinc-400">Loading member record...</main>;
   if (!member) return <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-center text-red-400">{error || "Member not found."}</main>;
 
@@ -161,6 +183,7 @@ export default function ManageMemberPage() {
             <label className="block text-sm text-zinc-400" htmlFor="profile-photo">Profile Photo</label>
             <input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-2 file:text-sm file:text-white" />
             <p className="mt-2 text-xs text-zinc-500">JPG, PNG, or WebP · Maximum 2 MB</p>
+            {uploading && <p className="mt-2 text-xs text-zinc-400">Uploading...</p>}
             {member.Profile_photo && (
               <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -176,7 +199,7 @@ export default function ManageMemberPage() {
           {error && <p className="mt-6 rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">{error}</p>}
           <div className="mt-8 flex flex-col-reverse gap-3 border-t border-zinc-800 pt-6 sm:flex-row sm:justify-between">
             <button type="button" disabled={deleting} onClick={deleteMember} className="rounded-xl border border-red-900/70 px-5 py-3 text-sm text-red-400 transition hover:bg-red-950/40 disabled:opacity-50">{deleting ? "Deleting..." : "Delete Member"}</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:opacity-50">{saving ? "Saving..." : "Save Changes"}</button>
+            <button type="submit" disabled={saving || uploading} className="rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:opacity-50">{saving ? "Saving..." : "Save Changes"}</button>
           </div>
         </form>
       </div>

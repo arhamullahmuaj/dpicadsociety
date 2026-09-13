@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAdminGuard } from "@/lib/useAdminGuard";
 
 type Member = {
   Member_id: string;
@@ -13,11 +15,22 @@ type Member = {
 };
 
 export default function AdminDashboard() {
+  const { checking } = useAdminGuard();
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    router.replace("/admin/login");
+  }
 
   useEffect(() => {
+    if (checking) return;
+
     async function loadMembers() {
       const { data, error } = await supabase
         .from("public_members")
@@ -31,7 +44,11 @@ export default function AdminDashboard() {
     }
 
     loadMembers();
-  }, []);
+  }, [checking]);
+
+  if (checking) {
+    return <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm text-zinc-400">Checking session...</main>;
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-white">
@@ -42,9 +59,22 @@ export default function AdminDashboard() {
             <h1 className="mt-3 text-3xl font-semibold">Admin Dashboard</h1>
             <p className="mt-2 text-sm text-zinc-400">Manage digital member records and verification links.</p>
           </div>
-          <Link className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200" href="/admin/members/new">
-            Add New Member
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200" href="/admin/members/new">
+              Add New Member
+            </Link>
+            <Link className="inline-flex items-center justify-center rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white" href="/admin/new-admin">
+              Add Admin
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="inline-flex items-center justify-center rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loggingOut ? "Logging out..." : "Log Out"}
+            </button>
+          </div>
         </header>
 
         <section className="mt-8 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
